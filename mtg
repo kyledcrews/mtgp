@@ -1,0 +1,248 @@
+#!/usr/bin/env ruby 
+
+# TCG Player Price Scraper 
+# By Ryan Sandor Richards
+
+require 'typhoeus'
+require 'nokogiri'
+require 'trollop'
+require 'term/ansicolor'
+
+colors = Term::ANSIColor
+
+SETS = {
+  :mms => "Modern+Masters",
+  :dmz => "Dragon's%20Maze",
+  :gtc => "Gatecrash",
+  :rtr => "Return%20to%20Ravnica",
+  :avr => "Avacyn%20Restored",
+  :dka => "Dark%20Ascension",
+  :inn => "Innistrad",
+  :nph => "New%20Phyrexia",
+  :mbs => "Mirrodin%20Besieged",
+  :som => "Scars%20of%20Mirrodin",
+  :roe => "Rise%20of%20the%20Eldrazi",
+  :wwk => "Worldwake",
+  :zen => "Zendikar",
+  :arb => "Alara%20Reborn",
+  :con => "Conflux",
+  :ala => "Shards%20of%20Alara",
+  :eve => "Eventide",
+  :shm => "Shadowmoor",
+  :mor => "Morningtide",
+  :lrw => "Lorwyn",
+  :fut => "Future%20Sight",
+  :plc => "Planar%20Chaos",
+  :tsb => "Timeshifted",
+  :tsp => "Time%20Spiral",
+  :csp => "Coldsnap",
+  :dis => "Dissension",
+  :gpt => "Guildpact",
+  :rav => "Ravnica",
+  :sok => "Saviors%20of%20Kamigawa",
+  :bok => "Betrayers%20of%20Kamigawa",
+  :chk => "Champions%20of%20Kamigawa",
+  "5dn".to_sym => "Fifth%20Dawn",
+  :dst => "Darksteel",
+  :mrd => "Mirrodin",
+  :scg => "Scourge",
+  :lgn => "Legions",
+  :ons => "Onslaught",
+  :jud => "Judgment",
+  :tor => "Torment",
+  :ody => "Odyssey",
+  :apc => "Apocalypse",
+  :pls => "Planeshift",
+  :inv => "Invasion",
+  :pcy => "Prophecy",
+  :nms => "Nemesis",
+  :mmq => "Mercadian%20Masques",
+  :uds => "Urza's%20Destiny",
+  :ulg => "Urza's%20Legacy",
+  :usg => "Urza's%20Saga",
+  :exo => "Exodus",
+  :sth => "Stronghold",
+  :tmp => "Tempest",
+  :wth => "Weatherlight",
+  :vis => "Visions",
+  :mir => "Mirage",
+  :all => "Alliances",
+  :hml => "Homelands",
+  :ice => "Ice%20Age",
+  :fem => "Fallen%20Empires",
+  :drk => "The%20Dark",
+  :leg => "Legends",
+  :atq => "Antiquities",
+  :arn => "Arabian%20Nights",
+  :m13 => "Magic%202013%20(M13)",
+  :m12 => "Magic%202012%20(M12)",
+  :m11 => "Magic%202011%20(M11)",
+  :m10 => "Magic%202010",
+  "10e".to_sym => "10th%20Edition",
+  "9ed".to_sym => "9th%20Edition",
+  "8ed".to_sym => "8th%20Edition",
+  "7ed".to_sym => "7th%20Edition",
+  "6ed".to_sym => "Classic%20Sixth%20Edition",
+  "5ed".to_sym => "Fifth%20Edition",
+  "4ed".to_sym => "Fourth%20Edition",
+  "3ed".to_sym => "Revised%20Edition",
+  "2ed".to_sym => "Unlimited%20Edition",
+  :leb => "Beta%20Edition",
+  :lea => "Alpha%20Edition",
+  :drb => "From%20the%20Vault:%20Dragons",
+  :v09 => "From%20the%20Vault:%20Exiled",
+  :v11 => "From%20the%20Vault:%20Realms",
+  :v10 => "From%20the%20Vault:%20Relics",
+  :ddc => "Duel%20Decks:%20Divine%20vs.%20Demonic",
+  :ddf => "Duel%20Decks:%20Elspeth%20vs.%20Tezzeret",
+  :evg => "Duel%20Decks:%20Elves%20vs.%20Goblins",
+  :ddd => "Duel%20Decks:%20Garruk%20vs.%20Liliana",
+  :ddj => "Duel%20Decks:%20Izzet%20vs.%20Golgari",
+  :dd2 => "Duel%20Decks:%20Jace%20vs.%20Chandra",
+  :dde => "Duel%20Decks:%20Phyrexia%20vs.%20The%20Coalition",
+  :ddk => "Duel%20Decks:%20Sorin%20vs.%20Tibalt",
+  :h09 => "Premium%20Deck%20Series:%20Slivers",
+  :pd2 => "Premium%20Deck%20Series:%20Fire%20and%20Lightning",
+  :s99 => "Starter%201999",
+  :s00 => "Starter%202000",
+  :por => "Portal",
+  :po2 => "Portal%20Second%20Age",
+  :ptk => "Portal%20Three%20Kingdoms",
+  :arc => "Archenemy",
+  :brb => "Battle%20Royale%20Box%20Set",
+  :btd => "Beatdown%20Box%20Set",
+  :chr => "Chronicles",
+  :cmd => "Commander",
+  :hop => "Planechase",
+  :pc2 => "Planechase%202012",
+  :ugl => "Unglued",
+  :unh => "Unhinged",
+  :vng => "Vanguard",
+  :apa => "APAC%20Lands",
+  :are => "Arena%20Promos",
+  :chp => "Champs%20Promos",
+  :eur => "European%20Lands",
+  :fnm => "FNM%20Promos",
+  :gdy => "Game%20Day%20Promos",
+  :gat => "Gateway%20Promos",
+  :gur => "Guru%20Lands",
+  :jjs => "JSS/MSS%20Promos",
+  :jge => "Judge%20Promos",
+  :lch => "Launch%20Party%20Cards",
+  :prw => "Magic%20Player%20Rewards",
+  :med => "Media%20Promos",
+  :pre => "Prerelease%20Cards",
+  :pt => "Pro%20Tour%20Promos",
+  :re => "Release%20Event%20Cards",
+  :so => "Special%20Occasion",
+  :wpn => "WPN%20Promos"
+}
+
+CARD_FIELDS = [:name, :cost, :type, :color, :rarity, :high, :mid, :low]
+PRICE_FIELDS = [:high, :mid, :low]
+
+USAGE = <<-EOS
+Scrapes prices by set and displays an easy to reference pricelist using TCGPlayer pricing information.
+
+Usage:
+    mtg list
+    mtg [options] <set>
+where [options] are:
+EOS
+
+
+
+# List the sets and exit (if that's what you're into)
+
+if ARGV[0] == 'list'
+  sets = SETS.map { |c,n| [c, n.gsub(/\%20|\+/, ' ')] }
+  cols = 2 
+  set_format = ("%-8s%-30s"*cols)
+  header = set_format % (['Code', 'Set Name'] * cols)
+  puts header, ('-' * header.length)
+  while sets.length > 0
+    row = sets.shift(cols).flatten 
+    puts ("%-8s%-30s"*[cols, row.length/2].min) % row
+  end
+  exit(0)
+end
+
+# Handle options
+
+opts = Trollop::options do
+  version "Magic the Gathering Price Scraper 1.0 (c) Ryan Sandor Richards"
+  banner USAGE
+  opt :min, "Minimum mid price to display", :default => 1.0
+  opt :max, "Maximum mid price to display", :type => :float
+  opt :sort, "Sort key [name, high, mid, low]", :default => "mid"
+  opt :rarity, "Restrict the rarity of the search [c, u, r, m]", :default => "curm", :type => :string
+  opt :range_key, "Key to use when restricting by min and max", :default => "mid"
+  opt :limit, "Limit the result set to a fixed number", :type => :integer
+  opt :type, "Restrict the card type [a, c, e, i, l, p, t, s]", :default => "aceilpts"
+  opt :nocolor, "Output without ansi color"
+  opt :debug, "Show debug output"
+end
+
+p opts if opts[:debug]
+
+# No set, no data, brah
+unless ARGV[0]
+  puts "Usage: mtg [options] <set>i"
+  puts "Use the --help option for more details."
+  exit(0)
+end
+
+
+set = SETS[(ARGV[0].to_sym or :m13)]
+unless set
+  puts "No set with the given name cold be found."
+  puts "Usage: mtg [options] set"
+  puts "Use mtg list for a list of sets."
+  exit(0)
+end
+
+unless PRICE_FIELDS.include? opts[:range_key]
+  puts "Usage: mtg [options] set"
+  puts "Invalid range key, please use: high, mid, or low."
+end
+
+
+# Begin the scrape of tcgplayer
+
+url = "http://magic.tcgplayer.com/db/price_guide.asp?setname=#{set}"
+page = Nokogiri::HTML(Typhoeus.get(url).response_body)
+
+
+result = []
+page.css('table').last.css('tr').each do |row|
+  tds = row.css('td').map { |d| d.text }
+  card = {}
+  CARD_FIELDS.each do |key|
+    value = tds.shift.strip.gsub(/^[^a-z0-9A-Z]+|[^a-z0-9A-Z]+$/, '')
+    card[key] = PRICE_FIELDS.include?(key) ? value.gsub('$', '').to_f : value 
+  end
+
+  next if card[:mid] < opts[:min].to_f
+  next if opts[:max] && card[:mid] >= opts[:max].to_f
+  next unless opts[:rarity].split('').map { |r| card[:rarity].downcase == r.downcase }.reduce { |a, b| a || b }
+  next unless opts[:type].split('').map {|t| card[:type][0].downcase == t.downcase }.reduce {|a, b| a||b}
+  result << card
+end
+
+result.sort! do |a, b|
+  key = opts[:sort].to_sym
+  key == :name ? a[key] <=> b[key] : b[key] <=> a[key]
+end
+
+result = result[0...opts[:limit]] if opts[:limit]
+
+format = "%10s%10s%10s    %-30s"
+color_format = "#{colors.green}%10s#{colors.yellow}%10s#{colors.red}%10s#{colors.reset}    %s"
+puts format %  ['High', 'Mid', 'Low', 'Name']
+puts ("-" * 64)
+result.each do |card|
+  values = PRICE_FIELDS.map { |k| "$%.2f" % card[k] } << card[:name]
+  puts (opts[:nocolor] ? format : color_format) % values
+end
+
+# "Whatever you do... Don't tell anyone"
